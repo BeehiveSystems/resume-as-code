@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resume-as-code"
+version = "0.1.0"
+description = "Resume-as-code CLI that renders JSON or YAML specs into polished HTML resumes."
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["resume", "cli", "yaml", "json", "html"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Topic :: Text Processing :: Markup :: HTML",
+]
+
+[project.scripts]
+"resume-as-code" = "resume_as_code.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

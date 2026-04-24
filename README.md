@@ -14,6 +14,7 @@ The design goal is the same as IaC or LaTeX:
 - `init` generates a starter spec in `json` or `yaml`
 - `validate` checks and normalizes a resume spec
 - `render` converts a resume spec into a themed HTML document
+- Automatic pagination splits rendered output across letter-sized pages
 - Five built-in themes covering general-purpose and dense engineering layouts
 - No third-party dependencies
 
@@ -96,12 +97,20 @@ skills:
 experience:
   -
     company: Acme Inc.
-    title: Staff Engineer
     location: Remote
     start: 2022-01
     end: Present
-    highlights:
-      - Led platform modernization.
+    positions:
+      -
+        title: Staff Engineer
+        start: 2023-07
+        end: Present
+        highlights:
+          - Led platform modernization.
+      -
+        title: Senior Platform Engineer
+        start: 2022-01
+        end: 2023-06
 education:
   -
     institution: University Name

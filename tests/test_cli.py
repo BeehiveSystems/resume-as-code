@@ -38,7 +38,11 @@ class ResumeCliTests(unittest.TestCase):
             html = output.read_text(encoding="utf-8")
             self.assertIn("Jane Doe", html)
             self.assertIn("Staff Product Engineer", html)
+            self.assertIn("Senior Platform Engineer", html)
             self.assertIn("Release Graph", html)
+            self.assertIn('id="resume-pages"', html)
+            self.assertIn("page--source", html)
+            self.assertIn("initializePagination", html)
 
     def test_init_writes_yaml_starter(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -48,6 +52,7 @@ class ResumeCliTests(unittest.TestCase):
             content = output.read_text(encoding="utf-8")
             self.assertIn('name: "Jane Doe"', content)
             self.assertIn("experience:", content)
+            self.assertIn("positions:", content)
 
     def test_render_theme_override_uses_slate_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -82,6 +87,54 @@ class ResumeCliTests(unittest.TestCase):
                 self.assertIn("Jane Doe", html)
                 self.assertIn(f"theme-{theme}", html)
 
+    def test_render_experience_with_multiple_positions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = Path(tmpdir) / "resume.json"
+            output = Path(tmpdir) / "resume.html"
+            spec.write_text(
+                """
+{
+  "basics": {
+    "name": "Jane Doe"
+  },
+  "experience": [
+    {
+      "company": "Credit.com",
+      "location": "Remote",
+      "start": "Mar. 2020",
+      "end": "Present",
+      "positions": [
+        {
+          "title": "Senior DevOps Engineer",
+          "start": "Oct. 2021",
+          "end": "Present",
+          "highlights": [
+            "Designed GitLab CI pipelines."
+          ]
+        },
+        {
+          "title": "Linux Systems Engineer",
+          "start": "Mar. 2020",
+          "end": "Oct. 2021",
+          "highlights": [
+            "Automated PCI remediation."
+          ]
+        }
+      ]
+    }
+  ]
+}
+""".strip(),
+                encoding="utf-8",
+            )
+            result = self.run_cli("render", str(spec), "--output", str(output))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html = output.read_text(encoding="utf-8")
+            self.assertIn("Credit.com", html)
+            self.assertIn("Senior DevOps Engineer", html)
+            self.assertIn("Linux Systems Engineer", html)
+            self.assertIn("Mar. 2020 - Present", html)
+
     def test_validate_rejects_missing_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             spec = Path(tmpdir) / "broken.json"
@@ -89,6 +142,31 @@ class ResumeCliTests(unittest.TestCase):
             result = self.run_cli("validate", str(spec))
             self.assertEqual(result.returncode, 1)
             self.assertIn("`basics.name` is required", result.stderr)
+
+    def test_validate_rejects_position_without_title(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = Path(tmpdir) / "broken.json"
+            spec.write_text(
+                """
+{
+  "basics": {
+    "name": "Jane Doe"
+  },
+  "experience": [
+    {
+      "company": "Credit.com",
+      "positions": [
+        {}
+      ]
+    }
+  ]
+}
+""".strip(),
+                encoding="utf-8",
+            )
+            result = self.run_cli("validate", str(spec))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("positions[1].title", result.stderr)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ def render_resume_html(resume: dict[str, Any], title: str | None = None) -> str:
     basics = resume["basics"]
     theme = resume["theme"]
     document_title = title or f"{basics['name']} Resume"
+    sections_html = render_resume_sections(resume)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -30,17 +31,16 @@ def render_resume_html(resume: dict[str, Any], title: str | None = None) -> str:
     </style>
   </head>
   <body class="theme-{escape(theme['name'])}">
-    <main class="page">
-      {render_header(basics)}
-      {render_summary(basics.get("summary", ""))}
-      {render_skills(resume.get("skills", []))}
-      {render_experience(resume.get("experience", []))}
-      {render_projects(resume.get("projects", []))}
-      {render_education(resume.get("education", []))}
-      {render_certifications(resume.get("certifications", []))}
-      {render_awards(resume.get("awards", []))}
-      {render_custom_sections(resume.get("sections", []))}
-    </main>
+    <div class="resume-pages" id="resume-pages"></div>
+    <div class="resume-source" id="resume-source">
+      <main class="page page--source">
+        {render_header(basics)}
+        {sections_html}
+      </main>
+    </div>
+    <script>
+{build_pagination_script()}
+    </script>
   </body>
 </html>
 """
@@ -83,15 +83,48 @@ def build_css(theme: dict[str, str]) -> str:
         font-family: {font_family};
         font-size: {preset['body_font_size']};
         line-height: {preset['line_height']};
+        position: relative;
+      }}
+
+      .resume-pages {{
+        position: absolute;
+        top: 0;
+        left: -200vw;
+        width: 100%;
+        visibility: hidden;
+        pointer-events: none;
+        padding: 24px 0;
+      }}
+
+      .resume-source {{
+        padding: 24px 0;
+      }}
+
+      body.is-paginated .resume-pages {{
+        position: static;
+        left: auto;
+        visibility: visible;
+        pointer-events: auto;
+      }}
+
+      body.is-paginated .resume-source {{
+        display: none;
       }}
 
       .page {{
         width: min(100%, 8.5in);
         min-height: 11in;
+        height: 11in;
         margin: 24px auto;
         padding: {preset['page_padding']};
         background: var(--paper);
         box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+      }}
+
+      .page--source {{
+        height: auto;
+        overflow: visible;
       }}
 
       .header {{
@@ -131,7 +164,16 @@ def build_css(theme: dict[str, str]) -> str:
         margin: {preset['summary_margin']};
       }}
 
-      section {{
+      .resume-header,
+      .resume-section,
+      .section-item,
+      .role-group,
+      .position {{
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }}
+
+      .resume-section {{
         margin-top: {preset['section_gap']};
       }}
 
@@ -152,6 +194,26 @@ def build_css(theme: dict[str, str]) -> str:
       .item:first-of-type {{
         border-top: 0;
         padding-top: 0;
+      }}
+
+      .item.is-continuation > .item-head .item-title::after {{
+        content: " (cont.)";
+        color: var(--muted);
+        font-weight: 400;
+      }}
+
+      .role-group {{
+        margin-top: 10px;
+      }}
+
+      .position {{
+        padding-top: 10px;
+        border-top: 1px solid var(--rule);
+      }}
+
+      .position:first-child {{
+        padding-top: 0;
+        border-top: 0;
       }}
 
       .item-head {{
@@ -218,20 +280,70 @@ def build_css(theme: dict[str, str]) -> str:
       p {{
         margin: 0;
       }}
+
+      .resume-section.is-continuation h2::after {{
+        content: " (cont.)";
+        letter-spacing: normal;
+        text-transform: none;
+        color: var(--muted);
+      }}
+
+      .page--oversize {{
+        height: auto;
+        overflow: visible;
+      }}
 {extra}
+      @page {{
+        size: Letter;
+        margin: 0;
+      }}
+
       @media print {{
         body {{
           background: white;
         }}
 
+        .resume-pages,
+        .resume-source {{
+          padding: 0;
+        }}
+
         .page {{
           margin: 0;
+          width: 8.5in;
+          box-shadow: none;
+          break-after: page;
+          page-break-after: always;
+        }}
+
+        .page:last-child {{
+          break-after: auto;
+          page-break-after: auto;
+        }}
+
+        .page--source {{
           width: auto;
           min-height: auto;
-          box-shadow: none;
+          height: auto;
+          overflow: visible;
         }}
       }}
 """
+
+
+def render_resume_sections(resume: dict[str, Any]) -> str:
+    return "".join(
+        [
+            render_summary(resume["basics"].get("summary", "")),
+            render_skills(resume.get("skills", [])),
+            render_experience(resume.get("experience", [])),
+            render_projects(resume.get("projects", [])),
+            render_education(resume.get("education", [])),
+            render_certifications(resume.get("certifications", [])),
+            render_awards(resume.get("awards", [])),
+            render_custom_sections(resume.get("sections", [])),
+        ]
+    )
 
 
 def render_header(basics: dict[str, Any]) -> str:
@@ -254,7 +366,7 @@ def render_header(basics: dict[str, Any]) -> str:
         f'<div class="role">{escape(str(basics["role"]))}</div>' if basics.get("role") else ""
     )
     return f"""
-      <header class="header">
+      <header class="resume-header header">
         <div>
           <h1 class="name">{escape(str(basics["name"]))}</h1>
           {role_html}
@@ -267,12 +379,10 @@ def render_header(basics: dict[str, Any]) -> str:
 def render_summary(summary: str) -> str:
     if not summary:
         return ""
-    return f"""
-      <section>
-        <h2>Summary</h2>
-        <p class="summary">{escape(summary)}</p>
-      </section>
-"""
+    return render_section(
+        "Summary",
+        [f'<div class="section-item"><p class="summary">{escape(summary)}</p></div>'],
+    )
 
 
 def render_skills(skills: list[dict[str, Any]]) -> str:
@@ -290,27 +400,28 @@ def render_skills(skills: list[dict[str, Any]]) -> str:
         )
         rows.append(
             f"""
-        <div class="skill-row">
+        <div class="skill-row section-item">
           <div class="skill-category">{category}</div>
           <div class="pill-list">{rendered_items}</div>
         </div>
 """
         )
 
-    return f"""
-      <section>
-        <h2>Skills</h2>
-        <div class="skills-grid">
-          {''.join(rows)}
-        </div>
-      </section>
-"""
+    return render_section("Skills", rows)
 
 
 def render_experience(items: list[dict[str, Any]]) -> str:
     if not items:
         return ""
-    return render_timeline_section("Experience", items, "company", "title")
+
+    rendered_items = []
+    for item in items:
+        if item.get("positions"):
+            rendered_items.append(render_grouped_experience_item(item))
+        else:
+            rendered_items.append(render_timeline_item(item, "company", "title"))
+
+    return render_section("Experience", rendered_items)
 
 
 def render_projects(items: list[dict[str, Any]]) -> str:
@@ -325,7 +436,7 @@ def render_projects(items: list[dict[str, Any]]) -> str:
         body = f"<p>{escape(str(description))}</p>" if description else ""
         rendered_items.append(
             f"""
-        <article class="item">
+        <article class="item section-item">
           <div class="item-title">{title}</div>
           {body}
           {render_highlights(item.get("highlights", []))}
@@ -333,12 +444,7 @@ def render_projects(items: list[dict[str, Any]]) -> str:
 """
         )
 
-    return f"""
-      <section>
-        <h2>Projects</h2>
-        {''.join(rendered_items)}
-      </section>
-"""
+    return render_section("Projects", rendered_items)
 
 
 def render_education(items: list[dict[str, Any]]) -> str:
@@ -378,10 +484,12 @@ def render_custom_sections(items: list[dict[str, Any]]) -> str:
         )
         sections.append(
             f"""
-      <section>
+      <section class="resume-section">
         <h2>{escape(title)}</h2>
-        {paragraph_html}
-        {render_highlights(bullets)}
+        <div class="section-item">
+          {paragraph_html}
+          {render_highlights(bullets)}
+        </div>
       </section>
 """
         )
@@ -391,37 +499,94 @@ def render_custom_sections(items: list[dict[str, Any]]) -> str:
 def render_timeline_section(
     heading: str, items: list[dict[str, Any]], org_key: str, role_key: str
 ) -> str:
-    rendered_items = []
-    for item in items:
-        left_title = escape(str(item.get(role_key, "")))
-        left_subtitle = escape(str(item.get(org_key, "")))
-        location = escape(str(item.get("location", ""))) if item.get("location") else ""
-        date_bits = [str(item.get("start", "")).strip(), str(item.get("end", "")).strip()]
-        date_bits = [bit for bit in date_bits if bit]
-        summary = item.get("summary")
-        summary_html = f"<p>{escape(str(summary))}</p>" if summary else ""
-        rendered_items.append(
-            f"""
-        <article class="item">
+    rendered_items = [
+        render_timeline_item(item, org_key, role_key)
+        for item in items
+    ]
+
+    return render_section(heading, rendered_items)
+
+
+def render_grouped_experience_item(item: dict[str, Any]) -> str:
+    company = str(item.get("company", "")).strip()
+    location = str(item.get("location", "")).strip()
+    summary = item.get("summary")
+    summary_html = f"<p>{escape(str(summary))}</p>" if summary else ""
+    location_html = (
+        f'<div class="item-subtitle">{escape(location)}</div>' if location else ""
+    )
+    positions = "".join(render_position(position) for position in item.get("positions", []))
+
+    return f"""
+        <article class="item section-item">
           <div class="item-head">
             <div>
-              <div class="item-title">{left_title}</div>
-              <div class="item-subtitle">{left_subtitle}</div>
-              {'<div class="item-subtitle">' + location + '</div>' if location else ''}
+              <div class="item-title">{escape(company)}</div>
+              {location_html}
             </div>
-            <div class="item-meta">{escape(' - '.join(date_bits))}</div>
+            <div class="item-meta">{escape(format_date_range(item))}</div>
+          </div>
+          {summary_html}
+          {render_highlights(item.get("highlights", []))}
+          <div class="role-group">
+            {positions}
+          </div>
+        </article>
+"""
+
+
+def render_position(position: dict[str, Any]) -> str:
+    location = str(position.get("location", "")).strip()
+    summary = position.get("summary")
+    summary_html = f"<p>{escape(str(summary))}</p>" if summary else ""
+    location_html = (
+        f'<div class="item-subtitle">{escape(location)}</div>' if location else ""
+    )
+
+    return f"""
+            <div class="position">
+              <div class="item-head">
+                <div>
+                  <div class="item-title">{escape(str(position.get("title", "")))}</div>
+                  {location_html}
+                </div>
+                <div class="item-meta">{escape(format_date_range(position))}</div>
+              </div>
+              {summary_html}
+              {render_highlights(position.get("highlights", []))}
+            </div>
+"""
+
+
+def render_timeline_item(item: dict[str, Any], org_key: str, role_key: str) -> str:
+    primary = str(item.get(role_key, "")).strip()
+    secondary = str(item.get(org_key, "")).strip()
+    if not primary:
+        primary, secondary = secondary, ""
+
+    location = str(item.get("location", "")).strip()
+    subtitle_html = (
+        f'<div class="item-subtitle">{escape(secondary)}</div>' if secondary else ""
+    )
+    location_html = (
+        f'<div class="item-subtitle">{escape(location)}</div>' if location else ""
+    )
+    summary = item.get("summary")
+    summary_html = f"<p>{escape(str(summary))}</p>" if summary else ""
+
+    return f"""
+        <article class="item section-item">
+          <div class="item-head">
+            <div>
+              <div class="item-title">{escape(primary)}</div>
+              {subtitle_html}
+              {location_html}
+            </div>
+            <div class="item-meta">{escape(format_date_range(item))}</div>
           </div>
           {summary_html}
           {render_highlights(item.get("highlights", []))}
         </article>
-"""
-        )
-
-    return f"""
-      <section>
-        <h2>{escape(heading)}</h2>
-        {''.join(rendered_items)}
-      </section>
 """
 
 
@@ -434,7 +599,7 @@ def render_simple_section(
         details = [detail for detail in details if detail]
         rendered_items.append(
             f"""
-        <article class="item">
+        <article class="item section-item">
           <div class="item-head">
             <div class="item-title">{escape(str(item.get(title_key, '')))}</div>
             <div class="item-meta">{escape(' | '.join(details))}</div>
@@ -443,12 +608,7 @@ def render_simple_section(
 """
         )
 
-    return f"""
-      <section>
-        <h2>{escape(heading)}</h2>
-        {''.join(rendered_items)}
-      </section>
-"""
+    return render_section(heading, rendered_items)
 
 
 def render_highlights(highlights: Any) -> str:
@@ -464,6 +624,185 @@ def render_highlights(highlights: Any) -> str:
     return f'<ul class="highlights">{items}</ul>'
 
 
+def format_date_range(item: dict[str, Any]) -> str:
+    date_bits = [str(item.get("start", "")).strip(), str(item.get("end", "")).strip()]
+    return " - ".join(bit for bit in date_bits if bit)
+
+
+def render_section(heading: str, items: list[str]) -> str:
+    content = "".join(item for item in items if item)
+    if not content:
+        return ""
+    return f"""
+      <section class="resume-section" data-section-title="{escape(heading, quote=True)}">
+        <h2>{escape(heading)}</h2>
+        {content}
+      </section>
+"""
+
+
+def build_pagination_script() -> str:
+    return """
+      (() => {
+        const PAGES_ID = "resume-pages";
+        const SOURCE_ID = "resume-source";
+
+        function createPage(pagesRoot, header, includeHeader) {
+          const page = document.createElement("main");
+          page.className = "page page--generated";
+          if (includeHeader && header) {
+            page.appendChild(header.cloneNode(true));
+          }
+          pagesRoot.appendChild(page);
+          return page;
+        }
+
+        function cloneSectionShell(section, isContinuation) {
+          const shell = section.cloneNode(false);
+          shell.innerHTML = "";
+          shell.classList.toggle("is-continuation", Boolean(isContinuation));
+          const heading = section.querySelector(":scope > h2");
+          if (heading) {
+            shell.appendChild(heading.cloneNode(true));
+          }
+          return shell;
+        }
+
+        function pageOverflows(page) {
+          return page.scrollHeight > page.clientHeight + 1;
+        }
+
+        function splitSectionItem(item) {
+          const positions = Array.from(
+            item.querySelectorAll(":scope > .role-group > .position")
+          );
+
+          if (positions.length < 2) {
+            return [item.cloneNode(true)];
+          }
+
+          const itemHead = item.querySelector(":scope > .item-head");
+          const introNodes = Array.from(item.children).filter((child) => {
+            return (
+              !child.classList.contains("item-head") &&
+              !child.classList.contains("role-group")
+            );
+          });
+
+          return positions.map((position, index) => {
+            const clone = item.cloneNode(false);
+            if (index > 0) {
+              clone.classList.add("is-continuation");
+            }
+
+            if (itemHead) {
+              clone.appendChild(itemHead.cloneNode(true));
+            }
+
+            if (index === 0) {
+              for (const introNode of introNodes) {
+                clone.appendChild(introNode.cloneNode(true));
+              }
+            }
+
+            const roleGroup = document.createElement("div");
+            roleGroup.className = "role-group";
+            roleGroup.appendChild(position.cloneNode(true));
+            clone.appendChild(roleGroup);
+            return clone;
+          });
+        }
+
+        function paginateResume() {
+          const sourceRoot = document.getElementById(SOURCE_ID);
+          const pagesRoot = document.getElementById(PAGES_ID);
+          if (!sourceRoot || !pagesRoot) {
+            return;
+          }
+
+          const sourcePage = sourceRoot.querySelector(".page--source");
+          if (!sourcePage) {
+            return;
+          }
+
+          const header = sourcePage.querySelector(":scope > .resume-header");
+          const sections = Array.from(
+            sourcePage.querySelectorAll(":scope > .resume-section")
+          );
+
+          pagesRoot.innerHTML = "";
+          let currentPage = createPage(pagesRoot, header, true);
+
+          for (const section of sections) {
+            const items = Array.from(section.querySelectorAll(":scope > .section-item"));
+            if (!items.length) {
+              continue;
+            }
+
+            let sectionShell = null;
+            let isContinuation = false;
+
+            for (const item of items) {
+              const chunks = splitSectionItem(item);
+
+              for (const itemClone of chunks) {
+                if (!sectionShell) {
+                  sectionShell = cloneSectionShell(section, isContinuation);
+                  currentPage.appendChild(sectionShell);
+                }
+
+                sectionShell.appendChild(itemClone);
+
+                if (!pageOverflows(currentPage)) {
+                  continue;
+                }
+
+                sectionShell.removeChild(itemClone);
+
+                if (!sectionShell.querySelector(".section-item")) {
+                  currentPage.removeChild(sectionShell);
+                }
+
+                currentPage = createPage(pagesRoot, header, false);
+                isContinuation = true;
+                sectionShell = cloneSectionShell(section, isContinuation);
+                currentPage.appendChild(sectionShell);
+                sectionShell.appendChild(itemClone);
+
+                if (pageOverflows(currentPage)) {
+                  currentPage.classList.add("page--oversize");
+                }
+              }
+            }
+          }
+
+          if (pagesRoot.children.length) {
+            document.body.classList.add("is-paginated");
+          }
+        }
+
+        async function initializePagination() {
+          if (document.fonts && document.fonts.ready) {
+            try {
+              await document.fonts.ready;
+            } catch (error) {
+              // Ignore font readiness failures and paginate with available metrics.
+            }
+          }
+
+          paginateResume();
+
+          let resizeTimer = null;
+          window.addEventListener("resize", () => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(paginateResume, 120);
+          });
+        }
+
+        window.addEventListener("load", initializePagination);
+      })();
+""".strip()
+
+
 def _link(label: Any, url: Any) -> str:
     return f'<a href="{escape(str(url), quote=True)}">{escape(str(label))}</a>'
-

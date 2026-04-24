@@ -15,9 +15,7 @@ def normalize_resume(document: dict[str, Any]) -> dict[str, Any]:
         "theme": _normalize_theme(document.get("theme")),
         "basics": _normalize_basics(document.get("basics", {})),
         "skills": _normalize_list_of_mappings(document.get("skills", []), "skills"),
-        "experience": _normalize_list_of_mappings(
-            document.get("experience", []), "experience"
-        ),
+        "experience": _normalize_experience(document.get("experience", [])),
         "projects": _normalize_list_of_mappings(document.get("projects", []), "projects"),
         "education": _normalize_list_of_mappings(
             document.get("education", []), "education"
@@ -116,4 +114,41 @@ def _normalize_list_of_mappings(value: Any, field_name: str) -> list[dict[str, A
         if not isinstance(item, dict):
             raise ResumeSpecError(f"`{field_name}[{index}]` must be a mapping.")
         normalized.append({str(key): item[key] for key in item})
+    return normalized
+
+
+def _normalize_experience(value: Any) -> list[dict[str, Any]]:
+    entries = _normalize_list_of_mappings(value, "experience")
+    normalized: list[dict[str, Any]] = []
+
+    for index, item in enumerate(entries, start=1):
+        positions = item.get("positions")
+        if positions is None:
+            normalized.append(item)
+            continue
+
+        company = str(item.get("company", "")).strip()
+        if not company:
+            raise ResumeSpecError(
+                f"`experience[{index}].company` is required when `positions` is used."
+            )
+        if not isinstance(positions, list):
+            raise ResumeSpecError(f"`experience[{index}].positions` must be a list.")
+
+        normalized_positions: list[dict[str, Any]] = []
+        for position_index, position in enumerate(positions, start=1):
+            if not isinstance(position, dict):
+                raise ResumeSpecError(
+                    f"`experience[{index}].positions[{position_index}]` must be a mapping."
+                )
+            title = str(position.get("title", "")).strip()
+            if not title:
+                raise ResumeSpecError(
+                    f"`experience[{index}].positions[{position_index}].title` is required."
+                )
+            normalized_positions.append({str(key): position[key] for key in position})
+
+        item["positions"] = normalized_positions
+        normalized.append(item)
+
     return normalized

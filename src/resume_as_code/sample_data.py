@@ -78,20 +78,48 @@ def build_sample_resume() -> OrderedDict:
                     OrderedDict(
                         [
                             ("company", "Acme Inc."),
-                            ("title", "Staff Engineer"),
                             ("location", "Remote"),
                             ("start", "2022-01"),
                             ("end", "Present"),
                             (
                                 "summary",
-                                "Owned the internal developer platform used by six product teams.",
+                                (
+                                    "Joined the platform organization during a company "
+                                    "restructure and expanded scope from core delivery tooling "
+                                    "into reliability and developer workflow ownership."
+                                ),
                             ),
                             (
-                                "highlights",
+                                "positions",
                                 [
-                                    "Cut service onboarding time from two weeks to two days by standardizing templates and CI defaults.",
-                                    "Designed an internal deployment control plane with strong guardrails and clear ownership boundaries.",
-                                    "Partnered with recruiting and leadership to turn engineering impact into a clearer hiring narrative.",
+                                    OrderedDict(
+                                        [
+                                            ("title", "Staff Engineer"),
+                                            ("start", "2023-07"),
+                                            ("end", "Present"),
+                                            (
+                                                "highlights",
+                                                [
+                                                    "Designed an internal deployment control plane with strong guardrails and clear ownership boundaries.",
+                                                    "Partnered with recruiting and leadership to turn engineering impact into a clearer hiring narrative.",
+                                                ],
+                                            ),
+                                        ]
+                                    ),
+                                    OrderedDict(
+                                        [
+                                            ("title", "Senior Platform Engineer"),
+                                            ("start", "2022-01"),
+                                            ("end", "2023-06"),
+                                            (
+                                                "highlights",
+                                                [
+                                                    "Cut service onboarding time from two weeks to two days by standardizing templates and CI defaults.",
+                                                    "Introduced shared release workflows that made platform changes easier to adopt across six product teams.",
+                                                ],
+                                            ),
+                                        ]
+                                    ),
                                 ],
                             ),
                         ]
@@ -163,4 +191,3 @@ def build_sample_resume() -> OrderedDict:
             ),
         ]
     )
-

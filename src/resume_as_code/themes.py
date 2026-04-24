@@ -149,6 +149,20 @@ EXTRA_CSS: dict[str, str] = {
       .pill {
         border-radius: 4px;
       }
+      .skill-row {
+        grid-template-columns: 150px 1fr;
+        align-items: baseline;
+      }
+      .skill-category {
+        white-space: nowrap;
+        font-size: 10.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+      }
+      .skills-grid {
+        gap: 4px;
+      }
 """,
     "mono": """
       .header {

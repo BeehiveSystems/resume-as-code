@@ -14,6 +14,10 @@ def _safe_font_stack(value: str) -> str:
     return _FONT_STACK_ALLOWED.sub("", value)
 
 
+def _display_url(url: Any) -> str:
+    return re.sub(r"^https?://(www\.)?", "", str(url).strip())
+
+
 def render_resume_html(resume: dict[str, Any], title: str | None = None) -> str:
     basics = resume["basics"]
     theme = resume["theme"]
@@ -247,6 +251,15 @@ def build_css(theme: dict[str, str]) -> str:
         margin-top: {preset['highlight_li_margin']};
       }}
 
+      .highlights .highlights {{
+        margin-top: 3px;
+        margin-bottom: 2px;
+      }}
+
+      .highlights .highlights li {{
+        margin-top: 2px;
+      }}
+
       .skills-grid {{
         display: grid;
         gap: {preset['skills_grid_gap']};
@@ -332,16 +345,18 @@ def build_css(theme: dict[str, str]) -> str:
 
 
 def render_resume_sections(resume: dict[str, Any]) -> str:
+    custom_sections = resume.get("sections", [])
     return "".join(
         [
             render_summary(resume["basics"].get("summary", "")),
+            render_custom_sections(custom_sections, placement="after_summary"),
             render_skills(resume.get("skills", [])),
             render_experience(resume.get("experience", [])),
             render_projects(resume.get("projects", [])),
             render_education(resume.get("education", [])),
             render_certifications(resume.get("certifications", [])),
             render_awards(resume.get("awards", [])),
-            render_custom_sections(resume.get("sections", [])),
+            render_custom_sections(custom_sections, placement="end"),
         ]
     )
 
@@ -354,13 +369,12 @@ def render_header(basics: dict[str, Any]) -> str:
 
     website = basics.get("website")
     if website:
-        contact_items.append(_link(website, website))
+        contact_items.append(f"<span>{escape(_display_url(website))}</span>")
 
     for profile in basics.get("profiles", []):
-        label = profile.get("network") or profile.get("username") or profile.get("url")
         url = profile.get("url")
-        if label and url:
-            contact_items.append(_link(label, url))
+        if url:
+            contact_items.append(f"<span>{escape(_display_url(url))}</span>")
 
     role_html = (
         f'<div class="role">{escape(str(basics["role"]))}</div>' if basics.get("role") else ""
@@ -432,12 +446,17 @@ def render_projects(items: list[dict[str, Any]]) -> str:
         name = item.get("name", "")
         link = item.get("link")
         description = item.get("description", "")
-        title = _link(name, link) if link else escape(str(name))
+        url_line = (
+            f'<div class="item-subtitle">{escape(_display_url(link))}</div>'
+            if link
+            else ""
+        )
         body = f"<p>{escape(str(description))}</p>" if description else ""
         rendered_items.append(
             f"""
         <article class="item section-item">
-          <div class="item-title">{title}</div>
+          <div class="item-title">{escape(str(name))}</div>
+          {url_line}
           {body}
           {render_highlights(item.get("highlights", []))}
         </article>
@@ -465,9 +484,14 @@ def render_awards(items: list[dict[str, Any]]) -> str:
     return render_simple_section("Awards", items, "name", ["issuer", "date"])
 
 
-def render_custom_sections(items: list[dict[str, Any]]) -> str:
+def render_custom_sections(
+    items: list[dict[str, Any]], placement: str = "end"
+) -> str:
     sections = []
     for item in items:
+        item_placement = str(item.get("placement", "end")).strip() or "end"
+        if item_placement != placement:
+            continue
         title = str(item.get("title", "")).strip()
         if not title:
             continue
@@ -616,12 +640,20 @@ def render_highlights(highlights: Any) -> str:
         return ""
     if not isinstance(highlights, list):
         highlights = [highlights]
-    items = "".join(
-        f"<li>{escape(str(highlight))}</li>" for highlight in highlights if str(highlight).strip()
-    )
-    if not items:
+    rendered: list[str] = []
+    for highlight in highlights:
+        if isinstance(highlight, dict):
+            text = str(highlight.get("text", "")).strip()
+            child_html = render_highlights(highlight.get("children", []))
+            if text or child_html:
+                rendered.append(f"<li>{escape(text)}{child_html}</li>")
+        else:
+            text = str(highlight).strip()
+            if text:
+                rendered.append(f"<li>{escape(text)}</li>")
+    if not rendered:
         return ""
-    return f'<ul class="highlights">{items}</ul>'
+    return f'<ul class="highlights">{"".join(rendered)}</ul>'
 
 
 def format_date_range(item: dict[str, Any]) -> str:

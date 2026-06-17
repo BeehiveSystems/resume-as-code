@@ -137,6 +137,35 @@ THEME_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
+THEME_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "classic": {
+        "density": "standard",
+        "typography": "Georgia serif",
+        "best_for": "General-purpose, warm paper feel",
+    },
+    "slate": {
+        "density": "standard",
+        "typography": "Arial sans",
+        "best_for": "General-purpose, neutral",
+    },
+    "compact": {
+        "density": "tight",
+        "typography": "Inter / system sans",
+        "best_for": "Long engineering resumes that need to fit more on one page",
+    },
+    "technical": {
+        "density": "dense",
+        "typography": "Inter body, monospace headers",
+        "best_for": "Engineering resumes wanting a technical look",
+    },
+    "mono": {
+        "density": "tight",
+        "typography": "Fully monospaced, dashed rules",
+        "best_for": "Terminal-aesthetic, minimalist",
+    },
+}
+
+
 EXTRA_CSS: dict[str, str] = {
     "technical": """
       h2 {

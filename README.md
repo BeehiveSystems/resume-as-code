@@ -13,7 +13,8 @@ The design goal is the same as IaC or LaTeX:
 
 - `init` generates a starter spec in `json` or `yaml`
 - `validate` checks and normalizes a resume spec
-- `render` converts a resume spec into a themed HTML document
+- `render` converts a resume spec into a themed HTML document (`--open` to preview in a browser)
+- `themes` lists the available built-in themes
 - Automatic pagination splits rendered output across letter-sized pages
 - Five built-in themes covering general-purpose and dense engineering layouts
 - No third-party dependencies
@@ -38,28 +39,33 @@ theme:
 
 ## Quick Start
 
+From the repository root, run the module directly without installing:
+
 ```bash
-cd resume-as-code
 PYTHONPATH=src python3 -m resume_as_code init --format yaml
-PYTHONPATH=src python3 -m resume_as_code render resume.yaml -o dist/resume.html
-open dist/resume.html
+PYTHONPATH=src python3 -m resume_as_code render resume.yaml -o dist/resume.html --open
 ```
+
+The `--open` flag opens the rendered HTML in your default browser, ready to print to PDF.
 
 If you want the installed command on your shell path:
 
 ```bash
-cd resume-as-code
 python3 -m pip install -e .
-resume-as-code render resume.yaml
+resume-as-code render resume.yaml --open
 ```
 
 ## CLI
 
 ```bash
-PYTHONPATH=src python3 -m resume_as_code init --format yaml --output resume.yaml
-PYTHONPATH=src python3 -m resume_as_code validate resume.yaml
-PYTHONPATH=src python3 -m resume_as_code render resume.yaml --theme slate --output dist/resume.html
+resume-as-code init --format yaml --output resume.yaml
+resume-as-code validate resume.yaml
+resume-as-code themes
+resume-as-code render resume.yaml --theme slate --output dist/resume.html --open
 ```
+
+`validate` also prints non-fatal warnings (for example, a missing contact email or an
+overly long summary) so you can catch issues before printing.
 
 ## Example Spec
 

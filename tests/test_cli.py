@@ -135,6 +135,28 @@ class ResumeCliTests(unittest.TestCase):
             self.assertIn("Linux Systems Engineer", html)
             self.assertIn("Mar. 2020 - Present", html)
 
+    def test_themes_lists_all_built_ins(self) -> None:
+        result = self.run_cli("themes")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for theme in ["classic", "slate", "compact", "technical", "mono"]:
+            self.assertIn(theme, result.stdout)
+
+    def test_init_prints_next_step(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "starter.yaml"
+            result = self.run_cli("init", "--output", str(output))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"Next: resume-as-code render {output}", result.stdout)
+
+    def test_validate_emits_warnings_for_sparse_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = Path(tmpdir) / "sparse.json"
+            spec.write_text('{"basics": {"name": "Jane Doe"}}', encoding="utf-8")
+            result = self.run_cli("validate", str(spec))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Valid resume spec for Jane Doe", result.stdout)
+            self.assertIn("basics.email is empty", result.stderr)
+
     def test_validate_rejects_missing_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             spec = Path(tmpdir) / "broken.json"

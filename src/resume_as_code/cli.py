@@ -3,12 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import webbrowser
 from pathlib import Path
 
 from .loader import ResumeSpecError, dump_yaml_subset, load_resume_spec
 from .render import render_resume_html
 from .sample_data import build_sample_resume
 from .schema import ALLOWED_THEMES, normalize_resume, resolve_theme
+from .themes import THEME_DESCRIPTIONS, THEME_PRESETS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,6 +59,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--title",
         help="Override the HTML document title.",
     )
+    render_parser.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the rendered HTML in your default browser.",
+    )
+
+    subcommands.add_parser("themes", help="List the available built-in themes.")
 
     return parser
 
@@ -72,6 +81,8 @@ def main(argv: list[str] | None = None) -> int:
             return _run_validate(args)
         if args.command == "render":
             return _run_render(args)
+        if args.command == "themes":
+            return _run_themes(args)
     except ResumeSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -95,6 +106,7 @@ def _run_init(args: argparse.Namespace) -> int:
         destination.write_text(dump_yaml_subset(sample) + "\n", encoding="utf-8")
 
     print(f"Wrote starter resume spec to {destination}")
+    print(f"Next: resume-as-code render {destination}")
     return 0
 
 
@@ -104,6 +116,8 @@ def _run_validate(args: argparse.Namespace) -> int:
     print(
         f"Valid resume spec for {basics['name']} with theme {resume['theme']['name']}."
     )
+    for warning in _collect_warnings(resume):
+        print(f"warning: {warning}", file=sys.stderr)
     return 0
 
 
@@ -117,4 +131,33 @@ def _run_render(args: argparse.Namespace) -> int:
     html = render_resume_html(resume, title=args.title)
     output.write_text(html, encoding="utf-8")
     print(f"Rendered resume to {output}")
+    if args.open:
+        webbrowser.open(output.resolve().as_uri())
     return 0
+
+
+def _run_themes(args: argparse.Namespace) -> int:
+    width = max(len(name) for name in THEME_PRESETS)
+    for name in sorted(THEME_PRESETS):
+        info = THEME_DESCRIPTIONS.get(name, {})
+        density = info.get("density", "")
+        best_for = info.get("best_for", "")
+        print(f"{name.ljust(width)}  {density.ljust(8)}  {best_for}")
+    return 0
+
+
+def _collect_warnings(resume: dict) -> list[str]:
+    warnings: list[str] = []
+    basics = resume["basics"]
+    if not basics.get("email"):
+        warnings.append("basics.email is empty; most resumes include a contact email.")
+    if not resume.get("experience") and not resume.get("projects"):
+        warnings.append("no experience or projects sections; the resume will look sparse.")
+    if not resume.get("skills"):
+        warnings.append("no skills section defined.")
+    summary = basics.get("summary", "")
+    if len(summary) > 600:
+        warnings.append(
+            f"basics.summary is {len(summary)} characters; consider tightening it for one page."
+        )
+    return warnings

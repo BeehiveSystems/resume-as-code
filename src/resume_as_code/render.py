@@ -834,7 +834,3 @@ def build_pagination_script() -> str:
         window.addEventListener("load", initializePagination);
       })();
 """.strip()
-
-
-def _link(label: Any, url: Any) -> str:
-    return f'<a href="{escape(str(url), quote=True)}">{escape(str(label))}</a>'
